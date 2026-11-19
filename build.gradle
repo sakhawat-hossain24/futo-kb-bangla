@@ -205,6 +205,17 @@ android {
         testApplicationId 'org.futo.inputmethod.latin.tests'
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = false
+
+        // Local Bangla builds: -PbanglaArm64Only trims the native build to phones,
+        // -PbanglaCoexist gives the app its own id so it can sit next to stock FUTO.
+        if (project.hasProperty('banglaArm64Only')) {
+            ndk {
+                abiFilters 'arm64-v8a'
+            }
+        }
+        if (project.hasProperty('banglaCoexist')) {
+            applicationIdSuffix '.bangla'
+        }
     }
 
     bundle {
@@ -318,6 +329,12 @@ android {
 
             buildConfigField "String", "PAYMENT_PRICE", "GOOGLEPAY_PRICE"
         }
+    }
+
+    testOptions {
+        // Unit tests (src/test) exercise pure-Kotlin code such as the Avro parser
+        // and the layout YAML schema; the android.jar stubs must not throw.
+        unitTests.returnDefaultValues = true
     }
 
     compileOptions {
