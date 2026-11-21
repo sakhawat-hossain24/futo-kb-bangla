@@ -10,6 +10,7 @@ phonetic Bangla input in the style of the Avro scheme. Nothing here is published
 | Avro transliteration engine (Kotlin port of `okkhor`'s parser) | `java/src/org/futo/inputmethod/event/combiners/bangla/AvroParser.kt` |
 | Rule table, auto-generated (289 patterns) | `.../bangla/AvroPatterns.kt` |
 | Combiner that turns typed latin into Bangla composing text | `.../bangla/BanglaPhoneticCombiner.kt` |
+| Raw latin input exposed to the suggestion strip | `.../bangla/BanglaPhoneticState.kt`, `latin/uix/ActionBar.kt` |
 | Registration in the layout combiner enum | `v2keyboard/CombinerKind.kt` (`BanglaPhonetic`) |
 | Layout definition `বাংলা (Avro Phonetic)` | `java/assets/layouts/Bengali/bengali_avro_phonetic.yaml` |
 | Language mapping (bn-BD / bn-IN) | `java/assets/layouts/mapping.yaml` |
@@ -19,6 +20,10 @@ phonetic Bangla input in the style of the Avro scheme. Nothing here is published
 Typing works like Avro on desktop: type `amar`, the composing text shows `আমার`, space commits
 the word. Suggestions and autocorrect come from the bundled dictionary (the keyboard queries it
 with the converted Bangla text).
+
+The suggestion strip always has an extra outlined cell on the left with the literal latin text
+being typed (`amar`). Tap it to commit the latin text instead of the Bangla conversion, which is
+handy for mixed Bangla/English writing and for names the dictionary doesn't know.
 
 ## Build
 

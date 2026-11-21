@@ -107,6 +107,7 @@ import org.futo.inputmethod.engine.ExpandableSuggestionBarConfiguration
 import org.futo.inputmethod.engine.IMEInterface
 import org.futo.inputmethod.engine.NonExpandableSuggestionBar
 import org.futo.inputmethod.event.Event
+import org.futo.inputmethod.event.combiners.bangla.BanglaPhoneticState
 import org.futo.inputmethod.latin.ATLCompat
 import org.futo.inputmethod.latin.AudioAndHapticFeedbackManager
 import org.futo.inputmethod.latin.BuildConfig
@@ -593,6 +594,13 @@ class UixManager(private val latinIME: LatinIME) {
 
     private val shouldShowSuggestionStrip = mutableStateOf(true)
     private val suggestedWords: MutableState<SuggestedWords?> = mutableStateOf(null)
+
+    /**
+     * Literal latin text of the phonetic word being composed (see BanglaPhoneticState), mirrored
+     * into Compose state so the suggestion strip can show it. Refreshed with every suggestion
+     * update, i.e. on every keystroke.
+     */
+    private val rawLatinInput: MutableState<String> = mutableStateOf("")
     private val expandableSuggestionCfg: MutableState<ExpandableSuggestionBarConfiguration> = mutableStateOf(
         NonExpandableSuggestionBar
     )
@@ -744,7 +752,8 @@ class UixManager(private val latinIME: LatinIME) {
                     },
                     onQuickClipDismiss = { quickClipState.value = null },
                     needToUseExpandableSuggestionUi = needToUseExpandableSuggestionUi,
-                    loading = latinIME.imeManager.isImeLoading()
+                    loading = latinIME.imeManager.isImeLoading(),
+                    rawLatinInput = if (shouldShowSuggestionStrip.value) rawLatinInput.value else ""
                 )
             }
         }
@@ -864,7 +873,8 @@ class UixManager(private val latinIME: LatinIME) {
                         words = suggestedWordsOrNull,
                         showClose = currWindowActionWindow.value?.showCloseButton == true,
                         showCollapse = currWindowActionWindow.value?.positionIsUserManagable == true,
-                        suggestionStripListener = suggestionStripListener
+                        suggestionStripListener = suggestionStripListener,
+                        rawLatinInput = if (shouldShowSuggestionStrip.value) rawLatinInput.value else ""
                     )
                 }
             } else if(showingAboveKeyboard && !needToUseExpandableSuggestionUi) {
@@ -1329,7 +1339,8 @@ class UixManager(private val latinIME: LatinIME) {
                                 closeActionWindow = currWindowActionWindow.value?.let {{ closeActionWindow() }},
                                 keyboardOffset = keyboardViewOffset,
                                 keyboardHeight = (latinIME.size.value?.height ?: kbHeight.intValue) + with(LocalDensity.current) { navBarHeight().toPx().toInt() },
-                                expandableSuggestionCfg = expandableSuggestionCfg.value
+                                expandableSuggestionCfg = expandableSuggestionCfg.value,
+                                rawLatinInput = if (shouldShowSuggestionStrip.value) rawLatinInput.value else ""
                             )
                         }
                         latinIME.LegacyKeyboardView(modifier = Modifier
@@ -1470,6 +1481,9 @@ class UixManager(private val latinIME: LatinIME) {
     fun setSuggestions(suggestedWords: SuggestedWords?, rtlSubtype: Boolean, cfg: ExpandableSuggestionBarConfiguration) {
         this.suggestedWords.value = suggestedWords
         this.expandableSuggestionCfg.value = cfg
+        // Phonetic layouts show the Bangla conversion as composing text; keep the typed latin
+        // around so the strip can offer it as a cell.
+        this.rawLatinInput.value = BanglaPhoneticState.rawInput
 
         if(currentNotice.value != null && suggestedWords?.isEmpty != true) {
             if(numSuggestionsSinceNotice > 0) {

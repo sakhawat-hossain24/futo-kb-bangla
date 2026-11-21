@@ -10,6 +10,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
@@ -36,6 +38,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.ButtonDefaults
@@ -111,6 +114,7 @@ import androidx.core.net.toUri
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import org.futo.inputmethod.engine.ExpandableSuggestionBarConfiguration
+import org.futo.inputmethod.latin.Dictionary
 import org.futo.inputmethod.latin.DisplayTop4Setting
 import org.futo.inputmethod.latin.R
 import org.futo.inputmethod.latin.SuggestedWords
@@ -379,6 +383,46 @@ fun RowScope.SuggestionItem(words: SuggestedWords, idx: Int, isPrimary: Boolean,
             .background(color = LocalKeyboardScheme.current.outline)
             .width(1.dp)
     )
+}
+
+/**
+ * Suggestion for a phonetic layout: commits the literal latin text that is being typed instead of
+ * the converted word. Shown as an outlined cell so it is distinguishable from dictionary
+ * suggestions.
+ */
+fun rawLatinSuggestion(raw: String): SuggestedWordInfo = SuggestedWordInfo(
+    raw,
+    "" /* prevWordsContext */,
+    SuggestedWordInfo.MAX_SCORE,
+    SuggestedWordInfo.KIND_TYPED,
+    Dictionary.DICTIONARY_USER_TYPED,
+    SuggestedWordInfo.NOT_AN_INDEX,
+    SuggestedWordInfo.NOT_A_CONFIDENCE
+)
+
+@Composable
+fun RowScope.RawLatinSuggestionItem(raw: String, modifier: Modifier, onClick: () -> Unit) {
+    val scheme = LocalKeyboardScheme.current
+    val shape = RoundedCornerShape(6.dp)
+
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
+            .padding(vertical = 5.dp)
+            .clip(shape)
+            .border(1.dp, scheme.outline, shape)
+            .clickable(onClick = onClick)
+            .testTag("RawLatinSuggestionItem"),
+        contentAlignment = Center
+    ) {
+        AutoFitText(
+            raw,
+            style = suggestionStyleAlternative.copy(color = scheme.onSurfaceVariant),
+            modifier = Modifier
+                .padding(horizontal = 4.dp)
+                .testTag("RawLatinSuggestionItemText")
+        )
+    }
 }
 
 
@@ -825,6 +869,11 @@ fun ActionBar(
     onQuickClipDismiss: () -> Unit = {},
     needToUseExpandableSuggestionUi: Boolean = false,
     loading: Boolean = false,
+    /**
+     * Literal latin text being typed by a phonetic layout, shown as an extra cell that commits it
+     * verbatim. Empty when the active layout is not phonetic.
+     */
+    rawLatinInput: String = "",
 ) {
     val view = LocalView.current
     val context = LocalContext.current
@@ -885,6 +934,14 @@ fun ActionBar(
                         ActionItems(onActionActivated, onActionAltActivated)
                     }
                 } else {
+                    if (rawLatinInput.isNotEmpty()) {
+                        RawLatinSuggestionItem(rawLatinInput, Modifier.weight(0.75f)) {
+                            suggestionStripListener.pickSuggestionManually(
+                                rawLatinSuggestion(rawLatinInput)
+                            )
+                        }
+                    }
+
                     if (importantNotice != null) {
                         ImportantNoticeView(importantNotice)
                     } else {
@@ -1003,6 +1060,8 @@ fun CollapsibleSuggestionsBar(
     showCollapse: Boolean,
     words: SuggestedWords?,
     suggestionStripListener: SuggestionStripViewListener,
+    /** Literal latin text being typed by a phonetic layout, committed verbatim when tapped. */
+    rawLatinInput: String = "",
 ) {
     Column(Modifier.height(ActionBarHeight)) {
         ActionSep()
@@ -1017,6 +1076,14 @@ fun CollapsibleSuggestionsBar(
                     CloseActionWindowButton(onClose)
                 } else {
                     Spacer(Modifier.width(42.dp))
+                }
+
+                if (rawLatinInput.isNotEmpty()) {
+                    RawLatinSuggestionItem(rawLatinInput, Modifier.weight(0.75f)) {
+                        suggestionStripListener.pickSuggestionManually(
+                            rawLatinSuggestion(rawLatinInput)
+                        )
+                    }
                 }
 
                 if (words != null) {
@@ -1323,6 +1390,8 @@ fun BoxScope.ActionBarWithExpandableCandidates(
     keyboardOffset: MutableIntState? = null,
     keyboardHeight: Int = 1000,
     expandableSuggestionCfg: ExpandableSuggestionBarConfiguration,
+    /** Literal latin text being typed by a phonetic layout, committed verbatim when tapped. */
+    rawLatinInput: String = "",
 ) {
     val wordList = remember(words) {
         words?.mSuggestedWordInfoList?.toList()?.filter {
@@ -1414,6 +1483,14 @@ fun BoxScope.ActionBarWithExpandableCandidates(
                 .weight(1.0f), color = actionBarColor()
         ) {
             Row(Modifier.safeKeyboardPadding()) {
+                if (rawLatinInput.isNotEmpty()) {
+                    RawLatinSuggestionItem(rawLatinInput, Modifier.width(96.dp)) {
+                        suggestionStripListener.pickSuggestionManually(
+                            rawLatinSuggestion(rawLatinInput)
+                        )
+                    }
+                }
+
                 if (wordList.isNotEmpty()) {
                     InlineCandidates(
                         suggestionsExpansion,
